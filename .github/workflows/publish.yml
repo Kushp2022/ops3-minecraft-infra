@@ -1,0 +1,45 @@
+name: Publish Minecraft Image
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and Push
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: minecraft-server
+          IMAGE_TAG: ${{ github.ref_name }}
+        run: |
+          docker pull itzg/minecraft-server:latest
+          docker tag itzg/minecraft-server:latest $ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+      - name: Smoke Test
+        run: |
+          docker run -d --name test-server -e EULA=TRUE ${{ steps.login-ecr.outputs.registry }}/minecraft-server:${{ github.ref_name }}
+          sleep 60
+          if docker logs test-server | grep -q "Done"; then
+            echo "Server started successfully"
+            docker stop test-server
+          else
+            echo "Server failed to start"
+            exit 1
+          fi
