@@ -1,3 +1,11 @@
+terraform {
+  backend "s3" {
+    bucket = "kush-minecraft-backups"
+    key    = "state/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
 provider "aws" {
   region = "us-east-1"
 }
@@ -39,10 +47,10 @@ resource "aws_instance" "mc_server" {
   tags = { Name = "Minecraft-Automated" }
 
   provisioner "local-exec" {
-    command = "sleep 60 && export ANSIBLE_HOST_KEY_CHECKING=False && ansible-playbook -i '${self.public_ip},' --private-key ./cs312-key.pem playbook.yml"
+    command = "sleep 60 && export ANSIBLE_HOST_KEY_CHECKING=False && ansible-playbook -i '${self.public_ip},' -u ubuntu --private-key ./labsuser.pem playbook.yml"
   }
 }
--
+
 output "server_ip" {
   value = aws_instance.mc_server.public_ip
 }

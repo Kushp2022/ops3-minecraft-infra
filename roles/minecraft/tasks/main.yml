@@ -1,0 +1,33 @@
+- name: Install Docker
+  apt:
+    name: docker.io
+    state: present
+    update_cache: yes
+
+- name: Install AWS CLI
+  apt:
+    name: awscli
+    state: present
+
+- name: Create Data Directory
+  file:
+    path: /data
+    state: directory
+    mode: '0777'
+
+- name: Restore World from S3
+  shell: aws s3 cp s3://kush-minecraft-backups/world_backup.tar.gz /tmp/world.tar.gz && tar -xzf /tmp/world.tar.gz -C /data
+  ignore_errors: yes
+
+- name: Login to ECR
+  shell: aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 637423633462.dkr.ecr.us-east-1.amazonaws.com
+
+- name: Start Minecraft Container
+  shell: |
+    docker run -d \
+      -p 25565:25565 \
+      -v /data:/data \
+      -e EULA=TRUE \
+      -e MOTD="Kush-Automated-Server" \
+      --name mc-server \
+      637423633462.dkr.ecr.us-east-1.amazonaws.com/minecraft-server:v1.0
